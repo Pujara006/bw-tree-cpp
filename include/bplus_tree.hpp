@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <iostream>
 
 class BPlusTree
 {
@@ -19,4 +20,5 @@ class BPlusTree
         BPlusTree(int order);
         bool search(int key, int &value) const;
         void insert(int key, int value);
+        void printTree() const;
 };
