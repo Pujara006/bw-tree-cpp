@@ -38,10 +38,21 @@ void BPlusTree::insert(int key,int value){
 
 void BPlusTree::printTree() const{
     const Node *current = root.get();
-    std::cout << "Keys: ";
+    std::cout << "Root Keys: ";
     for (size_t pos = 0; pos < current->keys.size();pos++)
         std::cout << current->keys[pos] << " ";
     std::cout << std::endl;
+    if(current->isLeaf == false){
+        // for(const std::shared_ptr<Node>& child : current->children){
+        for (size_t childPtr = 0; childPtr < current->children.size();childPtr++)
+        {
+            const auto& child = current->children[childPtr];
+            std::cout << "Children "<<childPtr<< " Keys: ";
+            for (size_t pos = 0; pos < child->keys.size();pos++)
+                std::cout << child->keys[pos] << " ";
+            std::cout << std::endl;
+        }
+    }
 }
 
 void BPlusTree::rootSplit(std::shared_ptr<Node>& oldRoot){
