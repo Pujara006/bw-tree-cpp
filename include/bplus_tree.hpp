@@ -16,7 +16,9 @@ class BPlusTree
         };
         std::shared_ptr<Node> root;
         int maxKeys;
-        void rootSplit(std::shared_ptr<Node>& root);
+        void splitRootLeaf();
+        Node* findTargetLeaf(int key);
+        const Node* findTargetLeaf(int key) const;
     public:
         BPlusTree(int order);
         bool search(int key, int &value) const;
