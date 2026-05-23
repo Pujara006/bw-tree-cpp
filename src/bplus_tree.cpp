@@ -32,6 +32,7 @@ void BPlusTree::insert(int key,int value){
     current->values.insert(current->values.begin() + pos, value);
     if (current->keys.size() > maxKeys){
         std::cout << "Leaf overflow detected" << std::endl;
+        rootSplit(root);
     }
 }
 
@@ -41,4 +42,25 @@ void BPlusTree::printTree() const{
     for (size_t pos = 0; pos < current->keys.size();pos++)
         std::cout << current->keys[pos] << " ";
     std::cout << std::endl;
+}
+
+void BPlusTree::rootSplit(std::shared_ptr<Node>& oldRoot){
+    std::shared_ptr<Node> newRoot = std::make_shared<Node>(false);
+    size_t splitIndex = (oldRoot->keys.size()) / 2;
+    std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
+    newRoot->children.push_back(oldRoot);
+    newRoot->children.push_back(rightLeaf);
+    rightLeaf->keys.assign(oldRoot->keys.begin() + splitIndex, 
+                           oldRoot->keys.end());
+    rightLeaf->values.assign(oldRoot->values.begin() + splitIndex, 
+                           oldRoot->values.end());
+    oldRoot->keys.erase(oldRoot->keys.begin() + splitIndex, 
+                           oldRoot->keys.end());
+    oldRoot->values.erase(oldRoot->values.begin() + splitIndex, 
+                           oldRoot->values.end());
+    int separatorKey = rightLeaf->keys[0];
+    newRoot->keys.push_back(separatorKey);
+    rightLeaf->next = oldRoot->next;
+    oldRoot->next = rightLeaf;
+    oldRoot = newRoot;
 }

@@ -21,4 +21,5 @@ class BPlusTree
         bool search(int key, int &value) const;
         void insert(int key, int value);
         void printTree() const;
+        void rootSplit(std::shared_ptr<Node>& root);
 };
