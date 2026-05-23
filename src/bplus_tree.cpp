@@ -33,7 +33,18 @@ void BPlusTree::insert(int key,int value){
     // current should not be constant here because we will modify the Node
     Node *current = root.get();
     size_t pos = 0;
-    while((pos<current->keys.size())&&key>current->keys[pos]) pos++;
+    if (false == current->isLeaf)
+    {
+        pos = std::lower_bound(current->keys.begin(),
+                    current->keys.end(), key) - current->keys.begin();
+        if(pos==current->keys.size()||key<current->keys[pos])
+            current = current->children[pos].get();
+        else{
+            current = current->children[pos+1].get();
+        }
+    }
+    pos = std::lower_bound(current->keys.begin(),
+                    current->keys.end(), key) - current->keys.begin();
     if (pos < current->keys.size() && key == current->keys[pos]) {
         std::cout << "Pair with key " << key << " already exists so doing nothing" << std::endl;
         return;
@@ -42,7 +53,9 @@ void BPlusTree::insert(int key,int value){
     current->values.insert(current->values.begin() + pos, value);
     if (current->keys.size() > maxKeys){
         std::cout << "Leaf overflow detected" << std::endl;
-        rootSplit(root);
+        if (root->isLeaf) {
+            rootSplit(root);
+        }
     }
 }
 
