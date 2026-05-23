@@ -10,7 +10,17 @@ BPlusTree::BPlusTree(int order) : maxKeys(order -1){
 
 bool BPlusTree::search(int key,int& value) const{
     const Node* current = root.get();
-    for(size_t i=0;i<current->keys.size();i++){
+    if(false == current->isLeaf){
+        size_t pos = std::lower_bound(current->keys.begin(),
+                    current->keys.end(), key) - current->keys.begin();
+        if(pos==current->keys.size()||key<current->keys[pos])
+            current = current->children[pos].get();
+        else{
+            current = current->children[pos+1].get();
+        }
+    }
+    for (size_t i = 0; i < current->keys.size(); i++)
+    {
         if(current->keys[i]==key){
             value = current->values[i];
             return true;
