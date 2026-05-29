@@ -91,22 +91,31 @@ void BPlusTree::insert(int key, int value)
 
 void BPlusTree::printTree() const
 {
-    std::cout << "Root Keys: ";
-    for (int key : root->keys)
-    {
-        std::cout << key << " ";
+    if(root==nullptr){
+        return;
     }
-    std::cout << std::endl;
-
-    if (!root->isLeaf)
-    {
-        for (size_t i = 0; i < root->children.size(); ++i)
+    size_t level = 0;
+    std::queue<const Node*> traversalQueue;
+    traversalQueue.push(root.get());
+    while(!traversalQueue.empty()){
+        size_t queueSize = traversalQueue.size();
+        std::cout << "Level " << level << ": ";
+        while (queueSize > 0)
         {
-            std::cout << "Child " << i << " Keys: ";
-            for (int k : root->children[i]->keys)
-                std::cout << k << " ";
-            std::cout << std::endl;
+            const Node* current = traversalQueue.front();
+            traversalQueue.pop();
+            std::cout << "[ ";
+            for (size_t i = 0; i < current->keys.size();i++){
+                std::cout << current->keys[i] << " ";
+            }
+            std::cout << "] ";
+            for (size_t i = 0; i < current->children.size();i++){
+                traversalQueue.push(current->children[i].get());
+            }
+            queueSize--;
         }
+        std::cout << std::endl;
+        level++;
     }
 }
 
