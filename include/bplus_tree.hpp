@@ -18,6 +18,7 @@ class BPlusTree
         int maxKeys;
         void splitRootLeaf();
         void splitLeaf(Node* leaf);
+        void splitRootInternal();
         Node *findTargetLeaf(int key);
         const Node* findTargetLeaf(int key) const;
     public:
