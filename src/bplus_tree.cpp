@@ -10,7 +10,7 @@ BPlusTree::BPlusTree(int order) : maxKeys(order -1){
 
 BPlusTree::Node* BPlusTree::findTargetLeaf(int key){
     Node* current = root.get();
-    if(false == current->isLeaf){
+    while(!current->isLeaf){
         size_t pos = std::lower_bound(current->keys.begin(),
                     current->keys.end(), key) - current->keys.begin();
         if(pos==current->keys.size()||key<current->keys[pos])
@@ -24,7 +24,7 @@ BPlusTree::Node* BPlusTree::findTargetLeaf(int key){
 
 const BPlusTree::Node* BPlusTree::findTargetLeaf(int key) const{
     const Node* current = root.get();
-    if(false == current->isLeaf){
+    while(!current->isLeaf){
         size_t pos = std::lower_bound(current->keys.begin(),
                     current->keys.end(), key) - current->keys.begin();
         if(pos==current->keys.size()||key<current->keys[pos])
