@@ -64,6 +64,9 @@ void BPlusTree::insert(int key,int value){
         if (root->isLeaf) {
             splitRootLeaf();
         }
+        else if (current->isLeaf){
+            splitLeaf(current);
+        }
     }
 }
 
@@ -102,4 +105,24 @@ void BPlusTree::splitRootLeaf(){
     rightLeaf->next = root->next;
     root->next = rightLeaf;
     root = newRoot;
+}
+
+void BPlusTree::splitLeaf(Node* leaf){
+    size_t splitIndex = (leaf->keys.size()) / 2;
+    std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
+    rightLeaf->keys.assign(leaf->keys.begin() + splitIndex,
+                           leaf->keys.end());
+    rightLeaf->values.assign(leaf->values.begin() + splitIndex,
+                             leaf->values.end());
+    leaf->keys.erase(leaf->keys.begin()+splitIndex,
+                   leaf->keys.end());
+    leaf->values.erase(leaf->values.begin() + splitIndex,
+                       leaf->values.end());
+    int separatorKey = rightLeaf->keys[0];
+    size_t pos = std::lower_bound(root->keys.begin(),
+                    root->keys.end(), separatorKey) - root->keys.begin();
+    root->keys.insert(root->keys.begin() + pos, separatorKey);
+    root->children.insert(root->children.begin() + pos + 1, rightLeaf);
+    rightLeaf->next = leaf->next;
+    leaf->next = rightLeaf;
 }
