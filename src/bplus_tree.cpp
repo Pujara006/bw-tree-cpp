@@ -10,9 +10,14 @@ BPlusTree::BPlusTree(int order) : maxKeys(order - 1)
     root = std::make_shared<Node>(true);
 }
 
-BPlusTree::Node* BPlusTree::findTargetLeaf(int key){
+std::vector<BPlusTree::Node*> BPlusTree::findTargetLeaf(int key){
+    if(root == nullptr)
+        return {};
     Node* current = root.get();
-    while(!current->isLeaf){
+    std::vector<BPlusTree::Node *> pathVec;
+    while (!current->isLeaf)
+    {
+        pathVec.push_back(current);
         size_t pos = std::lower_bound(current->keys.begin(),
                                       current->keys.end(), key) -
                      current->keys.begin();
@@ -23,12 +28,18 @@ BPlusTree::Node* BPlusTree::findTargetLeaf(int key){
             current = current->children[pos + 1].get();
         }
     }
-    return current;
+    pathVec.push_back(current);
+    return pathVec;
 }
 
-const BPlusTree::Node* BPlusTree::findTargetLeaf(int key) const{
-    const Node* current = root.get();
-    while(!current->isLeaf){
+std::vector<const BPlusTree::Node*> BPlusTree::findTargetLeaf(int key) const{
+    if(root == nullptr)
+        return {};
+    const Node *current = root.get();
+    std::vector<const BPlusTree::Node *> pathVec;
+    while (!current->isLeaf)
+    {
+        pathVec.push_back(current);
         size_t pos = std::lower_bound(current->keys.begin(),
                                       current->keys.end(), key) -
                      current->keys.begin();
@@ -39,12 +50,14 @@ const BPlusTree::Node* BPlusTree::findTargetLeaf(int key) const{
             current = current->children[pos + 1].get();
         }
     }
-    return current;
+    pathVec.push_back(current);
+    return pathVec;
 }
 
 bool BPlusTree::search(int key, int &value) const
 {
-    const Node *current = findTargetLeaf(key);
+    std::vector<const Node*> pathVec = findTargetLeaf(key);
+    const Node *current = pathVec.back();
     for (size_t i = 0; i < current->keys.size(); i++)
     {
         if (current->keys[i] == key)
@@ -59,7 +72,9 @@ bool BPlusTree::search(int key, int &value) const
 void BPlusTree::insert(int key, int value)
 {
     // current should not be constant here because we will modify the Node
-    Node *current = findTargetLeaf(key);
+    std::vector<Node*> pathVec = findTargetLeaf(key);
+    Node *current = pathVec.back();
+    pathVec.pop_back();
     size_t pos = std::lower_bound(current->keys.begin(),
                                   current->keys.end(), key) -
                  current->keys.begin();
@@ -79,12 +94,7 @@ void BPlusTree::insert(int key, int value)
         }
         else if (current->isLeaf)
         {
-            splitLeaf(current);
-            if (root->keys.size() > maxKeys)
-            {
-                std::cout << "Root overflow detected" << std::endl;
-                splitRootInternal();
-            }
+            splitLeaf(pathVec,current);
         }
     }
 }
@@ -141,7 +151,25 @@ void BPlusTree::splitRootLeaf()
     root = newRoot;
 }
 
-void BPlusTree::splitLeaf(Node *leaf)
+void BPlusTree::insertIntoParent(std::vector<Node*>& pathVec,std::shared_ptr<Node> rightNode,int separatorKey){
+    if(pathVec.size()>0){
+        auto parent = pathVec.back();
+        size_t pos = std::lower_bound(parent->keys.begin(), parent->keys.end(), separatorKey) -
+                     parent->keys.begin();
+        parent->keys.insert(parent->keys.begin() + pos, separatorKey);
+        parent->children.insert(parent->children.begin() + pos + 1, rightNode);
+    }
+    else{
+        std::shared_ptr<Node> parent = std::make_shared<Node>(false);
+        parent->keys.push_back(separatorKey);
+        parent->children.push_back(root);
+        parent->children.push_back(rightNode);
+        root = parent;
+        pathVec.push_back(root.get());
+    }
+}
+
+void BPlusTree::splitLeaf(std::vector<Node*>& pathVec,Node *leaf)
 {
     size_t splitIndex = (leaf->keys.size()) / 2;
     std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
@@ -154,29 +182,31 @@ void BPlusTree::splitLeaf(Node *leaf)
     leaf->values.erase(leaf->values.begin() + splitIndex,
                        leaf->values.end());
     int separatorKey = rightLeaf->keys[0];
-    size_t pos = std::lower_bound(root->keys.begin(),
-                                  root->keys.end(), separatorKey) -
-                 root->keys.begin();
-    root->keys.insert(root->keys.begin() + pos, separatorKey);
-    root->children.insert(root->children.begin() + pos + 1, rightLeaf);
+    insertIntoParent(pathVec, rightLeaf, separatorKey);
     rightLeaf->next = leaf->next;
     leaf->next = rightLeaf;
+    auto parent = pathVec.back();
+    pathVec.pop_back();
+    if (parent->keys.size() > maxKeys)
+        splitInternal(parent,pathVec);
 }
 
-void BPlusTree::splitRootInternal(){
-    std::shared_ptr<Node> newRoot = std::make_shared<Node>(false);
-    std::shared_ptr<Node> rightNode = std::make_shared<Node>(false);
-    size_t splitIndex = root->keys.size() / 2;
-    rightNode->keys.assign(root->keys.begin() + splitIndex + 1,
-                           root->keys.end());
-    rightNode->children.assign(root->children.begin() + splitIndex + 1,
-                               root->children.end());
-    newRoot->keys.push_back(root->keys[splitIndex]);
-    root->keys.erase(root->keys.begin() + splitIndex, 
-                     root->keys.end());
-    root->children.erase(root->children.begin() + splitIndex + 1, 
-                         root->children.end());
-    newRoot->children.push_back(root);
-    newRoot->children.push_back(rightNode);
-    root = newRoot;
+void BPlusTree::splitInternal(Node* internalNode, std::vector<Node*>& pathVec){
+    while(internalNode->keys.size()>maxKeys)
+    {
+        std::shared_ptr<Node> rightNode = std::make_shared<Node>(false);
+        size_t splitIndex = internalNode->keys.size() / 2;
+        rightNode->keys.assign(internalNode->keys.begin() + splitIndex + 1,
+                            internalNode->keys.end());
+        rightNode->children.assign(internalNode->children.begin() + splitIndex + 1,
+                                internalNode->children.end());
+        int separatorKey = internalNode->keys[splitIndex];
+        internalNode->keys.erase(internalNode->keys.begin() + splitIndex,
+                                 internalNode->keys.end());
+        internalNode->children.erase(internalNode->children.begin() + splitIndex + 1, 
+                            internalNode->children.end());
+        insertIntoParent(pathVec,rightNode, separatorKey);
+        internalNode = pathVec.back();
+        pathVec.pop_back();
+    }
 }

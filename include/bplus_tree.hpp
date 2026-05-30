@@ -17,10 +17,12 @@ class BPlusTree
         std::shared_ptr<Node> root;
         int maxKeys;
         void splitRootLeaf();
-        void splitLeaf(Node* leaf);
-        void splitRootInternal();
-        Node *findTargetLeaf(int key);
-        const Node* findTargetLeaf(int key) const;
+        void splitLeaf(std::vector<Node*>& pathVec,Node* leaf);
+        void splitInternal(Node* internalNode, std::vector<Node*>& path);
+        std::vector<Node*> findTargetLeaf(int key);
+        std::vector<const Node*> findTargetLeaf(int key) const;
+        void insertIntoParent(std::vector<Node *> &pathVec,
+                                         std::shared_ptr<Node> rightNode, int separatorKey);
     public:
         BPlusTree(int order);
         bool search(int key, int &value) const;
