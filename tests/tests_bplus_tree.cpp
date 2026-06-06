@@ -190,6 +190,102 @@ void test_random_insert_large_range_search()
     std::cout << "[PASS] test_random_insert_large_range_search\n";
 }
 
+// Test 13
+void test_validate_tree_small_tree()
+{
+    BPlusTree tree(4);
+    assert(tree.validateTree());
+    tree.insert(10, 100);
+    tree.insert(20, 200);
+    tree.insert(30, 300);
+    assert(tree.validateTree());
+    std::cout << "[PASS] test_validate_tree_small_tree\n";
+}
+
+// Test 14
+void test_validate_tree_large_sequential_insert()
+{
+    BPlusTree tree(4);
+    for (int i = 1; i <= 1000; i++){
+        tree.insert(i, i * 10);
+    }
+    assert(tree.validateTree());
+    std::cout << "[PASS] test_validate_tree_large_sequential_insert\n";
+}
+
+// Test 15
+void test_validate_tree_large_random_insert()
+{
+    BPlusTree tree(4);
+    std::vector<int> keys;
+    for (int i = 1; i <= 1000; i++){
+        keys.push_back(i);
+    }
+    std::mt19937 rng(42);
+    std::shuffle(keys.begin(), keys.end(), rng);
+    for (int key : keys){
+        tree.insert(key, key * 10);
+    }
+    assert(tree.validateTree());
+    std::cout << "[PASS] test_validate_tree_large_random_insert\n";
+}
+
+// Test 16
+void test_negative_keys()
+{
+    BPlusTree tree(4);
+    tree.insert(-100, 100);
+    tree.insert(-50, 200);
+    tree.insert(0, 300);
+    tree.insert(50, 400);
+    int value = 0;
+    assert(tree.search(-100, value));
+    assert(value == 100);
+    assert(tree.search(-50, value));
+    assert(value == 200);
+    assert(tree.search(0, value));
+    assert(value == 300);
+    assert(tree.search(50, value));
+    assert(value == 400);
+    assert(tree.validateTree());
+    std::cout << "[PASS] test_negative_keys\n";
+}
+
+// Test 17
+void test_range_search_single_missing_key()
+{
+    BPlusTree tree(4);
+    for (int i = 10; i <= 100; i += 10){
+        tree.insert(i, i * 100);
+    }
+    auto result = tree.rangeSearch(51, 51);
+    assert(result.empty());
+    std::cout << "[PASS] test_range_search_single_missing_key\n";
+}
+
+// Test 18
+void test_search_after_large_random_insert()
+{
+    BPlusTree tree(4);
+    std::vector<int> keys;
+    for (int i = 1; i <= 1000; i++){
+        keys.push_back(i);
+    }
+    std::mt19937 rng(42);
+    std::shuffle(keys.begin(), keys.end(), rng);
+    for (int key : keys){
+        tree.insert(key, key * 10);
+    }
+    for (int i = 1; i <= 1000; i++){
+        int value = 0;
+        bool found = tree.search(i, value);
+        assert(found);
+        assert(value == i * 10);
+    }
+    assert(tree.validateTree());
+    std::cout << "[PASS] test_search_after_large_random_insert\n";
+}
+
 int main() {
     test_insert_and_search_single_key();
     test_search_missing_key();
@@ -203,5 +299,11 @@ int main() {
     test_range_search_empty();
     test_range_search_large_tree();
     test_random_insert_large_range_search();
+    test_validate_tree_small_tree();
+    test_validate_tree_large_sequential_insert();
+    test_validate_tree_large_random_insert();
+    test_negative_keys();
+    test_range_search_single_missing_key();
+    test_search_after_large_random_insert();
     return 0;
 }
