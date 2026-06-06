@@ -1,6 +1,10 @@
 #include "bplus_tree.hpp"
 #include <cassert>
 #include <iostream>
+#include <vector>
+#include <random>
+#include <algorithm>
+#include <climits>
 
 // Test 1
 void test_insert_and_search_single_key() {
@@ -148,6 +152,44 @@ void test_range_search_empty(){
     std::cout << "[PASS] test_range_search_empty\n";
 }
 
+// Test 11
+void test_range_search_large_tree()
+{
+    BPlusTree tree(4);
+    for(int i = 1; i <= 1000; i++){
+        tree.insert(i, i * 10);
+    }
+    auto result = tree.rangeSearch(INT_MIN, INT_MAX);
+    assert(result.size() == 1000);
+    for(int i = 1; i <= 1000; i++){
+        assert(result[i - 1].first == i);
+        assert(result[i - 1].second == i * 10);
+    }
+    std::cout << "[PASS] test_range_search_large_tree\n";
+}
+
+// Test 12
+void test_random_insert_large_range_search()
+{
+    BPlusTree tree(4);
+    std::vector<int> keys;
+    for (int i = 1; i <= 1000; i++){
+        keys.push_back(i);
+    }
+    std::mt19937 rng(42);   // fixed seed for reproducible tests
+    std::shuffle(keys.begin(), keys.end(), rng);
+    for (int key : keys){
+        tree.insert(key, key * 10);
+    }
+    auto result = tree.rangeSearch(INT_MIN, INT_MAX);
+    assert(result.size() == 1000);
+    for (int i = 1; i <= 1000; i++){
+        assert(result[i - 1].first == i);
+        assert(result[i - 1].second == i * 10);
+    }
+    std::cout << "[PASS] test_random_insert_large_range_search\n";
+}
+
 int main() {
     test_insert_and_search_single_key();
     test_search_missing_key();
@@ -159,5 +201,7 @@ int main() {
     test_range_search_full_range();
     test_range_search_single_key();
     test_range_search_empty();
+    test_range_search_large_tree();
+    test_random_insert_large_range_search();
     return 0;
 }
