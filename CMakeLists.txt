@@ -19,7 +19,11 @@ target_include_directories(
 
 add_executable(
     bplus_tree_tests
-    tests/tests_bplus_tree.cpp
+    tests/test_main.cpp
+    tests/test_insert_search.cpp
+    tests/test_range_search.cpp
+    tests/test_validation.cpp
+    tests/test_delete.cpp
 )
 
 target_link_libraries(
