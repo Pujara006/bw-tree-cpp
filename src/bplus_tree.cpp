@@ -365,6 +365,18 @@ void BPlusTree::borrowFromRightSibling(Node* leaf,Node* rightSibling){
     rightSibling->values.erase(rightSibling->values.begin());
 }
 
+void BPlusTree::mergeWithLeftSibling(Node *leaf, Node* leftSibling){
+    leftSibling->keys.insert(leftSibling->keys.end(),leaf->keys.begin(), leaf->keys.end());
+    leftSibling->values.insert(leftSibling->values.end(),leaf->values.begin(), leaf->values.end());
+    leftSibling->next = leaf->next;
+}
+
+void BPlusTree::mergeWithRightSibling(Node* leaf, Node* rightSibling){
+    leaf->keys.insert(leaf->keys.end(),rightSibling->keys.begin(), rightSibling->keys.end());
+    leaf->values.insert(leaf->values.end(),rightSibling->values.begin(), rightSibling->values.end());
+    leaf->next = rightSibling->next;
+}
+
 void BPlusTree::handleLeafUnderflow(std::vector<Node*> pathVec,Node* leaf){
     Node *parent = pathVec.back();
     size_t childIndex =0;
@@ -385,7 +397,16 @@ void BPlusTree::handleLeafUnderflow(std::vector<Node*> pathVec,Node* leaf){
         parent->keys[childIndex] = rightSibling->keys[0];
     }
     else{
-        std::cout << "Merge Needed" << std::endl;
+        if(leftSibling){
+            mergeWithLeftSibling(leaf, leftSibling);
+            parent->children.erase(parent->children.begin() + childIndex);
+            parent->keys.erase(parent->keys.begin() + childIndex-1);
+        }
+        else{
+            mergeWithRightSibling(leaf, rightSibling);
+            parent->children.erase(parent->children.begin() + childIndex+1);
+            parent->keys.erase(parent->keys.begin() + childIndex);
+        }
     }
 }
 

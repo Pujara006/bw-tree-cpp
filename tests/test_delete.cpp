@@ -158,6 +158,55 @@ static void test_multiple_borrows_stress()
     std::cout << "[PASS] test_multiple_borrows_stress\n";
 }
 
+static void test_merge_with_left_sibling()
+{
+    BPlusTree tree(4);
+    tree.insert(10, 100);
+    tree.insert(20, 200);
+    tree.insert(30, 300);
+    tree.insert(40, 400);
+    assert(tree.deleteKey(40));
+    int value = 0;
+    assert(!tree.search(40, value));
+    assert(tree.search(10, value));
+    assert(tree.search(20, value));
+    assert(tree.search(30, value));
+    std::cout << "[PASS] test_merge_with_left_sibling\n";
+}
+
+static void test_merge_with_right_sibling()
+{
+    BPlusTree tree(4);
+    tree.insert(10, 100);
+    tree.insert(20, 200);
+    tree.insert(30, 300);
+    tree.insert(40, 400);
+    assert(tree.deleteKey(10));
+    int value = 0;
+    assert(!tree.search(10, value));
+    assert(tree.search(20, value));
+    assert(tree.search(30, value));
+    assert(tree.search(40, value));
+    std::cout << "[PASS] test_merge_with_right_sibling\n";
+}
+
+static void test_leaf_merge_range_search()
+{
+    BPlusTree tree(4);
+    for (int i = 10; i <= 60; i += 10){
+        tree.insert(i, i * 100);
+    }
+    assert(tree.deleteKey(60));
+    auto result = tree.rangeSearch(-100, 1000);
+    std::vector<int> expectedKeys = {10, 20, 30, 40, 50};
+    assert(result.size() == expectedKeys.size());
+    for (size_t i = 0; i < result.size(); i++){
+        assert(result[i].first == expectedKeys[i]);
+        assert(result[i].second == expectedKeys[i] * 100);
+    }
+    std::cout << "[PASS] test_leaf_merge_range_search\n";
+}
+
 void runDeleteTests()
 {
     test_delete_existing_key();
@@ -168,4 +217,7 @@ void runDeleteTests()
     test_borrow_from_left_sibling();
     test_borrow_from_right_sibling();
     test_multiple_borrows_stress();
+    test_merge_with_left_sibling();
+    test_merge_with_right_sibling();
+    test_leaf_merge_range_search();
 }
