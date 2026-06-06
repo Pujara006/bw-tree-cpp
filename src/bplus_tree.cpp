@@ -210,3 +210,42 @@ void BPlusTree::splitInternal(Node* internalNode, std::vector<Node*>& pathVec){
         pathVec.pop_back();
     }
 }
+
+void BPlusTree::printLeaves() const{
+    const Node* current = root.get();
+    while(!current->isLeaf){
+        current = current->children[0].get();
+    }
+    while(current){
+        std::cout << "[ ";
+        for (auto key : current->keys)
+            std::cout << key << " ";
+        std::cout << "]";
+        if (current->next)
+        {
+            std::cout << " -> ";
+        }
+        current = current->next.get();
+    }
+    std::cout << std::endl;
+}
+
+std::vector<std::pair<int,int>> BPlusTree::rangeSearch(int startKey,int endKey) const{
+    std::vector<std::pair<int, int>> keyValues;
+    std::vector<const Node*> pathVec = findTargetLeaf(startKey);
+    const Node *current = pathVec.back();
+    while(current){
+        if(current->keys[0]>endKey)
+            break;
+        for (size_t i = 0; i < current->keys.size(); i++)
+        {
+            if(current->keys[i]>=startKey && current->keys[i]<=endKey){
+                keyValues.push_back({current->keys[i], current->values[i]});
+            }
+            else if(current->keys[i]>endKey)
+                break;
+        }
+        current = current->next.get();
+    }
+    return keyValues;
+}

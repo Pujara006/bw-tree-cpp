@@ -28,4 +28,6 @@ class BPlusTree
         bool search(int key, int &value) const;
         void insert(int key, int value);
         void printTree() const;
+        void printLeaves() const;
+        std::vector<std::pair<int, int>> rangeSearch(int startKey, int endKey) const;
 };
