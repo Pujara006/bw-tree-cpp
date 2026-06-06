@@ -27,6 +27,9 @@ class BPlusTree
         bool validateNode(const Node* node) const;
         bool validateLeafDepth() const;
         bool validateLeafChain() const;
+        void handleLeafUnderflow(std::vector<Node *> pathVec,Node* leaf);
+        void borrowFromLeftSibling(Node* leaf,Node* leftSibling);
+        void borrowFromRightSibling(Node *leaf, Node *rightSibling);
     public:
         BPlusTree(int order);
         bool search(int key, int &value) const;

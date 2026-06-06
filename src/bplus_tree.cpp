@@ -347,21 +347,68 @@ bool BPlusTree::validateLeafChain() const{
     return true;
 }
 
+void BPlusTree::borrowFromLeftSibling(Node* leaf,Node* leftSibling){
+    int key = leftSibling->keys[leftSibling->keys.size() - 1];
+    int value = leftSibling->values[leftSibling->values.size() - 1];
+    leaf->keys.insert(leaf->keys.end(), key);
+    leaf->values.insert(leaf->values.end(), value);
+    leftSibling->keys.erase(leftSibling->keys.end() - 1);
+    leftSibling->values.erase(leftSibling->values.end() - 1);
+}
+
+void BPlusTree::borrowFromRightSibling(Node* leaf,Node* rightSibling){
+    int key = rightSibling->keys[0];
+    int value = rightSibling->values[0];
+    leaf->keys.insert(leaf->keys.begin(), key);
+    leaf->values.insert(leaf->values.begin(), value);
+    rightSibling->keys.erase(rightSibling->keys.begin());
+    rightSibling->values.erase(rightSibling->values.begin());
+}
+
+void BPlusTree::handleLeafUnderflow(std::vector<Node*> pathVec,Node* leaf){
+    Node *parent = pathVec.back();
+    size_t childIndex =0;
+    for (size_t i = 0; i < parent->children.size();i++){
+        if(parent->children[i].get() == leaf){
+            childIndex = i;
+            break;
+        }
+    }
+    Node *leftSibling = childIndex > 0 ? parent->children[childIndex - 1].get() : nullptr;
+    Node* rightSibling = childIndex < parent->children.size()-1 ? parent->children[childIndex+1].get() : nullptr;
+    if(leftSibling && leftSibling->keys.size()>minKeys){
+        borrowFromLeftSibling(leaf, leftSibling);
+        parent->keys[childIndex - 1] = leaf->keys[0];
+    }
+    else if(rightSibling && rightSibling->keys.size()>minKeys){
+        borrowFromRightSibling(leaf, rightSibling);
+        parent->keys[childIndex] = rightSibling->keys[0];
+    }
+    else{
+        std::cout << "Merge Needed" << std::endl;
+    }
+}
+
 bool BPlusTree::deleteKey(int key){
     std::vector<Node*> pathVec = findTargetLeaf(key);
     if (pathVec.empty()) return false;
     Node *current = pathVec.back();
+    pathVec.pop_back();
     size_t pos = std::lower_bound(current->keys.begin(),
-                                      current->keys.end(), key) -
-                     current->keys.begin();
+                                  current->keys.end(), key) -
+                 current->keys.begin();
     if(pos>=current->keys.size())
         return false;
     if(current->keys[pos]!= key)
         return false;
     current->keys.erase(current->keys.begin() + pos);
     current->values.erase(current->values.begin() + pos);
+    if(current == root.get()){
+        std::cout << "root underflow \n";
+        return true;
+    }
     if(current->keys.size()<minKeys){
-        std::cout << "Underflow detected" << std::endl;
+        handleLeafUnderflow(pathVec, current);
     }
     return true;
 }
