@@ -1,7 +1,7 @@
 #include "bplus_tree.hpp"
 #include <climits>
 
-BPlusTree::BPlusTree(int order) : maxKeys(order - 1)
+BPlusTree::BPlusTree(int order) : maxKeys(order - 1),minKeys((order + 1) / 2 - 1)
 {
     // Tree should be a valid one
     if (order < 3)
@@ -343,6 +343,25 @@ bool BPlusTree::validateLeafChain() const{
             previousKey = current->keys[i];
         }
         current = current->next.get();
+    }
+    return true;
+}
+
+bool BPlusTree::deleteKey(int key){
+    std::vector<Node*> pathVec = findTargetLeaf(key);
+    if (pathVec.empty()) return false;
+    Node *current = pathVec.back();
+    size_t pos = std::lower_bound(current->keys.begin(),
+                                      current->keys.end(), key) -
+                     current->keys.begin();
+    if(pos>=current->keys.size())
+        return false;
+    if(current->keys[pos]!= key)
+        return false;
+    current->keys.erase(current->keys.begin() + pos);
+    current->values.erase(current->values.begin() + pos);
+    if(current->keys.size()<minKeys){
+        std::cout << "Underflow detected" << std::endl;
     }
     return true;
 }

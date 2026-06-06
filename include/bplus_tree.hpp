@@ -16,6 +16,7 @@ class BPlusTree
         };
         std::shared_ptr<Node> root;
         size_t maxKeys;
+        size_t minKeys;
         void splitRootLeaf();
         void splitLeaf(std::vector<Node*>& pathVec,Node* leaf);
         void splitInternal(Node* internalNode, std::vector<Node*>& path);
@@ -34,4 +35,5 @@ class BPlusTree
         void printLeaves() const;
         std::vector<std::pair<int, int>> rangeSearch(int startKey, int endKey) const;
         bool validateTree() const;
+        bool deleteKey(int key);
 };
