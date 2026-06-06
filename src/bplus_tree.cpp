@@ -1,4 +1,5 @@
 #include "bplus_tree.hpp"
+#include <climits>
 
 BPlusTree::BPlusTree(int order) : maxKeys(order - 1)
 {
@@ -87,7 +88,6 @@ void BPlusTree::insert(int key, int value)
     current->values.insert(current->values.begin() + pos, value);
     if (current->keys.size() > maxKeys)
     {
-        std::cout << "Leaf overflow detected" << std::endl;
         if (root->isLeaf)
         {
             splitRootLeaf();
@@ -104,7 +104,7 @@ void BPlusTree::printTree() const
     if(root==nullptr){
         return;
     }
-    size_t level = 0;
+    int level = 0;
     std::queue<const Node*> traversalQueue;
     traversalQueue.push(root.get());
     while(!traversalQueue.empty()){
@@ -248,4 +248,101 @@ std::vector<std::pair<int,int>> BPlusTree::rangeSearch(int startKey,int endKey) 
         current = current->next.get();
     }
     return keyValues;
+}
+
+bool BPlusTree::validateTree() const
+{
+    return BPlusTree::validateNode(root.get()) &&
+           BPlusTree::validateLeafDepth() &&
+           BPlusTree::validateLeafChain();
+}
+
+bool BPlusTree::validateNode(const Node* node) const
+{
+    if (node == nullptr){
+        return true;
+    }
+    std::queue<const Node*> traversalQueue;
+    traversalQueue.push(node);
+    while (!traversalQueue.empty()){
+        const Node* current = traversalQueue.front();
+        traversalQueue.pop();
+        for (size_t i = 1; i < current->keys.size(); i++){
+            if (current->keys[i] < current->keys[i - 1])
+            {
+                return false;
+            }
+        }
+        if (current->keys.size() > static_cast<size_t>(maxKeys)){
+            return false;
+        }
+        if (current->isLeaf){
+            if (current->values.size() != current->keys.size()){
+                return false;
+            }
+        }
+        else{
+            if (current->children.size() != current->keys.size() + 1){
+                return false;
+            }
+            for (const auto& child : current->children){
+                if (child == nullptr)
+                {
+                    return false;
+                }
+                traversalQueue.push(child.get());
+            }
+        }
+    }
+    return true;
+}
+
+bool BPlusTree::validateLeafDepth() const{
+    int leafLevel = -1;
+    int level = 0;
+    if (nullptr == root)
+        return true;
+    std::queue<const Node*> traversalQueue;
+    traversalQueue.push(root.get());
+    while(!traversalQueue.empty()){
+        size_t queueSize = traversalQueue.size();
+        while(0<queueSize){
+            const Node *current = traversalQueue.front();
+            traversalQueue.pop();
+            if(current->isLeaf){
+                if (leafLevel == -1) {
+                    leafLevel = level;
+                } else if (leafLevel != level) {
+                    return false;
+                }
+            }
+            for (size_t i = 0; i < current->children.size();i++){
+                traversalQueue.push(current->children[i].get());
+            }
+            queueSize--;
+        }
+        level++;
+    }
+    return true;
+}
+
+bool BPlusTree::validateLeafChain() const{
+    if (root == nullptr){
+        return true;
+    }
+    const Node* current = root.get();
+    while (!current->isLeaf){
+        current = current->children[0].get();
+    }
+    int previousKey = INT_MIN;
+    while (current){
+        for (size_t i = 0; i < current->keys.size(); i++){
+            if (current->keys[i] <= previousKey){
+                return false;
+            }
+            previousKey = current->keys[i];
+        }
+        current = current->next.get();
+    }
+    return true;
 }

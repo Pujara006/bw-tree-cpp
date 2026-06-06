@@ -23,6 +23,9 @@ class BPlusTree
         std::vector<const Node*> findTargetLeaf(int key) const;
         void insertIntoParent(std::vector<Node *> &pathVec,
                                          std::shared_ptr<Node> rightNode, int separatorKey);
+        bool validateNode(const Node* node) const;
+        bool validateLeafDepth() const;
+        bool validateLeafChain() const;
     public:
         BPlusTree(int order);
         bool search(int key, int &value) const;
@@ -30,4 +33,5 @@ class BPlusTree
         void printTree() const;
         void printLeaves() const;
         std::vector<std::pair<int, int>> rangeSearch(int startKey, int endKey) const;
+        bool validateTree() const;
 };
