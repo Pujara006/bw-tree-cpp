@@ -30,6 +30,8 @@ class BPlusTree
         void handleLeafUnderflow(std::vector<Node *> pathVec,Node* leaf);
         void borrowFromLeftSibling(Node* leaf,Node* leftSibling);
         void borrowFromRightSibling(Node *leaf, Node *rightSibling);
+        void mergeWithLeftSibling(Node *leaf, Node *leftSibling);
+        void mergeWithRightSibling(Node *leaf, Node *rightSibling);
     public:
         BPlusTree(int order);
         bool search(int key, int &value) const;
