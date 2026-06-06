@@ -15,7 +15,7 @@ class BPlusTree
             Node(bool leaf) : isLeaf(leaf) {}
         };
         std::shared_ptr<Node> root;
-        int maxKeys;
+        size_t maxKeys;
         void splitRootLeaf();
         void splitLeaf(std::vector<Node*>& pathVec,Node* leaf);
         void splitInternal(Node* internalNode, std::vector<Node*>& path);
