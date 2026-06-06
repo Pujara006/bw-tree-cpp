@@ -92,6 +92,62 @@ void test_random_insert(){
     std::cout << "[PASS] test_random_insert\n";
 }
 
+// Test 7
+void test_range_search_normal(){
+    BPlusTree tree(4);
+    for (int i = 10; i <= 100; i += 10){
+        tree.insert(i, i * 100);
+    }
+    auto result = tree.rangeSearch(35, 85);
+    std::vector<int> expectedKeys = {40, 50, 60, 70, 80};
+    assert(result.size() == expectedKeys.size());
+    for (size_t i = 0; i < result.size(); i++){
+        assert(result[i].first == expectedKeys[i]);
+        assert(result[i].second == expectedKeys[i] * 100);
+    }
+    std::cout << "[PASS] test_range_search_normal\n";
+}
+
+// Test 8
+void test_range_search_full_range(){
+    BPlusTree tree(4);
+    for (int i = 10; i <= 100; i += 10){
+        tree.insert(i, i * 100);
+    }
+    auto result = tree.rangeSearch(-100, 1000);
+    assert(result.size() == 10);
+    for (size_t i = 0; i < result.size(); i++){
+        int expectedKey = static_cast<int>((i + 1) * 10);
+        assert(result[i].first == expectedKey);
+        assert(result[i].second == expectedKey * 100);
+    }
+    std::cout << "[PASS] test_range_search_full_range\n";
+}
+
+// Test 9
+void test_range_search_single_key(){
+    BPlusTree tree(4);
+    for (int i = 10; i <= 100; i += 10){
+        tree.insert(i, i * 100);
+    }
+    auto result = tree.rangeSearch(50, 50);
+    assert(result.size() == 1);
+    assert(result[0].first == 50);
+    assert(result[0].second == 5000);
+    std::cout << "[PASS] test_range_search_single_key\n";
+}
+
+// Test 10
+void test_range_search_empty(){
+    BPlusTree tree(4);
+    for (int i = 10; i <= 100; i += 10){
+        tree.insert(i, i * 100);
+    }
+    auto result = tree.rangeSearch(45, 45);
+    assert(result.empty());
+    std::cout << "[PASS] test_range_search_empty\n";
+}
+
 int main() {
     test_insert_and_search_single_key();
     test_search_missing_key();
@@ -99,5 +155,9 @@ int main() {
     test_sequential_insert();
     test_reverse_insert();
     test_random_insert();
+    test_range_search_normal();
+    test_range_search_full_range();
+    test_range_search_single_key();
+    test_range_search_empty();
     return 0;
 }
