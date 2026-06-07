@@ -37,8 +37,9 @@ class BPlusTree
         void borrowFromRightInternal(Node *node, Node *rightSibling,Node* parent,size_t childIndex);
         void mergeWithLeftInternal(Node *node, Node *leftSibling, Node *parent, size_t childIndex);
         void mergeWithRightInternal(Node *node, Node *rightSibling, Node *parent, size_t childIndex);
+        void shrinkRoot();
     public:
-        BPlusTree(int order);
+        BPlusTree(size_t order);
         bool search(int key, int &value) const;
         void insert(int key, int value);
         void printTree() const;

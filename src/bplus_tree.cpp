@@ -1,7 +1,7 @@
 #include "bplus_tree.hpp"
 #include <climits>
 
-BPlusTree::BPlusTree(int order) : maxKeys(order - 1),minKeys((order + 1) / 2 - 1)
+BPlusTree::BPlusTree(size_t order) : maxKeys(order - 1),minKeys((order + 1) / 2 - 1)
 {
     // Tree should be a valid one
     if (order < 3)
@@ -19,14 +19,15 @@ std::vector<BPlusTree::Node*> BPlusTree::findTargetLeaf(int key){
     while (!current->isLeaf)
     {
         pathVec.push_back(current);
-        size_t pos = std::lower_bound(current->keys.begin(),
+        auto pos = std::lower_bound(current->keys.begin(),
                                       current->keys.end(), key) -
                      current->keys.begin();
-        if (pos == current->keys.size() || key < current->keys[pos])
-            current = current->children[pos].get();
+        const size_t posIndex = static_cast<size_t>(pos);
+        if (posIndex == current->keys.size() || key < current->keys[posIndex])
+            current = current->children[posIndex].get();
         else
         {
-            current = current->children[pos + 1].get();
+            current = current->children[posIndex + 1].get();
         }
     }
     pathVec.push_back(current);
@@ -41,14 +42,15 @@ std::vector<const BPlusTree::Node*> BPlusTree::findTargetLeaf(int key) const{
     while (!current->isLeaf)
     {
         pathVec.push_back(current);
-        size_t pos = std::lower_bound(current->keys.begin(),
+        auto pos = std::lower_bound(current->keys.begin(),
                                       current->keys.end(), key) -
                      current->keys.begin();
-        if (pos == current->keys.size() || key < current->keys[pos])
-            current = current->children[pos].get();
+        const size_t posIndex = static_cast<size_t>(pos);
+        if (posIndex == current->keys.size() || key < current->keys[posIndex])
+            current = current->children[posIndex].get();
         else
         {
-            current = current->children[pos + 1].get();
+            current = current->children[posIndex + 1].get();
         }
     }
     pathVec.push_back(current);
@@ -76,10 +78,11 @@ void BPlusTree::insert(int key, int value)
     std::vector<Node*> pathVec = findTargetLeaf(key);
     Node *current = pathVec.back();
     pathVec.pop_back();
-    size_t pos = std::lower_bound(current->keys.begin(),
+    auto pos = std::lower_bound(current->keys.begin(),
                                   current->keys.end(), key) -
                  current->keys.begin();
-    if (pos < current->keys.size() && key == current->keys[pos])
+    const size_t posIndex = static_cast<size_t>(pos);
+    if (posIndex < current->keys.size() && key == current->keys[posIndex])
     {
         std::cout << "Pair with key " << key << " already exists so doing nothing" << std::endl;
         return;
@@ -154,7 +157,7 @@ void BPlusTree::splitRootLeaf()
 void BPlusTree::insertIntoParent(std::vector<Node*>& pathVec,std::shared_ptr<Node> rightNode,int separatorKey){
     if(pathVec.size()>0){
         auto parent = pathVec.back();
-        size_t pos = std::lower_bound(parent->keys.begin(), parent->keys.end(), separatorKey) -
+        auto pos = std::lower_bound(parent->keys.begin(), parent->keys.end(), separatorKey) -
                      parent->keys.begin();
         parent->keys.insert(parent->keys.begin() + pos, separatorKey);
         parent->children.insert(parent->children.begin() + pos + 1, rightNode);
@@ -347,6 +350,14 @@ bool BPlusTree::validateLeafChain() const{
     return true;
 }
 
+void BPlusTree::shrinkRoot(){
+    if(root->isLeaf)
+        return;
+    if(root->keys.empty() &&root->children.size() == 1){
+        root = root->children[0];
+    }
+}
+
 void BPlusTree::borrowFromLeftLeaf(Node* leaf,Node* leftSibling){
     int key = leftSibling->keys.back();
     int value = leftSibling->values.back();
@@ -390,6 +401,8 @@ void BPlusTree::borrowFromLeftInternal(Node *node, Node *leftSibling,
 
 void BPlusTree::borrowFromRightInternal(Node *node, Node *rightSibling,
                                         Node* parent,size_t childIndex){
+    // Move parent separator down into node.
+    // Promote rightSibling's first key to parent.
     node->keys.push_back(parent->keys[childIndex]);
     node->children.push_back(rightSibling->children[0]);
     parent->keys[childIndex] = rightSibling->keys[0];
@@ -399,7 +412,7 @@ void BPlusTree::borrowFromRightInternal(Node *node, Node *rightSibling,
 
 void BPlusTree::mergeWithLeftInternal(Node *node, Node *leftSibling, 
                                     Node *parent, size_t childIndex){
-    int separatorIndex = childIndex - 1;
+    size_t separatorIndex = childIndex - 1;
     leftSibling->keys.push_back(parent->keys[separatorIndex]);
     parent->keys.erase(parent->keys.begin()+separatorIndex);
     leftSibling->keys.insert(leftSibling->keys.end(),node->keys.begin(),node->keys.end());
@@ -467,7 +480,7 @@ void BPlusTree::handleLeafUnderflow(std::vector<Node*>& pathVec,Node* leaf){
     Node* rightSibling = childIndex < parent->children.size()-1 ? parent->children[childIndex+1].get() : nullptr;
     if(leftSibling && leftSibling->keys.size()>minKeys){
         borrowFromLeftLeaf(leaf, leftSibling);
-        if(leaf->keys.size()>0) parent->keys[childIndex - 1] = leaf->keys[0];
+        parent->keys[childIndex - 1] = leaf->keys[0];
     }
     else if(rightSibling && rightSibling->keys.size()>minKeys){
         borrowFromRightLeaf(leaf, rightSibling);
@@ -495,21 +508,22 @@ bool BPlusTree::deleteKey(int key){
     if (pathVec.empty()) return false;
     Node *current = pathVec.back();
     pathVec.pop_back();
-    size_t pos = std::lower_bound(current->keys.begin(),
+    auto pos = std::lower_bound(current->keys.begin(),
                                   current->keys.end(), key) -
                  current->keys.begin();
-    if(pos>=current->keys.size())
+    const size_t posIndex = static_cast<size_t>(pos);
+    if(posIndex >=current->keys.size())
         return false;
-    if(current->keys[pos]!= key)
+    if(current->keys[posIndex]!= key)
         return false;
     current->keys.erase(current->keys.begin() + pos);
     current->values.erase(current->values.begin() + pos);
     if(current == root.get()){
-        std::cout << "root underflow \n";
         return true;
     }
     if(current->keys.size()<minKeys){
         handleLeafUnderflow(pathVec, current);
     }
+    shrinkRoot();
     return true;
 }

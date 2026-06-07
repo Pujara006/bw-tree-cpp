@@ -72,7 +72,7 @@ static void test_range_search_large_tree()
     }
     auto result = tree.rangeSearch(INT_MIN, INT_MAX);
     assert(result.size() == 1000);
-    for (int i = 1; i <= 1000; i++){
+    for (size_t i = 1; i <= 1000; i++){
         assert(result[i - 1].first == i);
         assert(result[i - 1].second == i * 10);
     }
