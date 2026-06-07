@@ -27,11 +27,16 @@ class BPlusTree
         bool validateNode(const Node* node) const;
         bool validateLeafDepth() const;
         bool validateLeafChain() const;
-        void handleLeafUnderflow(std::vector<Node *> pathVec,Node* leaf);
-        void borrowFromLeftSibling(Node* leaf,Node* leftSibling);
-        void borrowFromRightSibling(Node *leaf, Node *rightSibling);
-        void mergeWithLeftSibling(Node *leaf, Node *leftSibling);
-        void mergeWithRightSibling(Node *leaf, Node *rightSibling);
+        void handleLeafUnderflow(std::vector<Node *>& pathVec,Node* leaf);
+        void borrowFromLeftLeaf(Node* leaf,Node* leftSibling);
+        void borrowFromRightLeaf(Node *leaf, Node *rightSibling);
+        void mergeWithLeftLeaf(Node *leaf, Node *leftSibling);
+        void mergeWithRightLeaf(Node *leaf, Node *rightSibling);
+        void handleInternalUnderflow(std::vector<Node *>& pathVec);
+        void borrowFromLeftInternal(Node *node, Node *leftSibling,Node* parent,size_t childIndex);
+        void borrowFromRightInternal(Node *node, Node *rightSibling,Node* parent,size_t childIndex);
+        void mergeWithLeftInternal(Node *node, Node *leftSibling, Node *parent, size_t childIndex);
+        void mergeWithRightInternal(Node *node, Node *rightSibling, Node *parent, size_t childIndex);
     public:
         BPlusTree(int order);
         bool search(int key, int &value) const;

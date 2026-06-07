@@ -207,6 +207,107 @@ static void test_leaf_merge_range_search()
     std::cout << "[PASS] test_leaf_merge_range_search\n";
 }
 
+static void test_internal_borrow_from_left(){
+    BPlusTree tree(4);
+    for (int i = 1; i <= 50; i++){
+        tree.insert(i, i * 10);
+    }
+    for (int i = 40; i <= 50; i++){
+        assert(tree.deleteKey(i));
+    }
+    assert(tree.validateTree());
+    int value = 0;
+    for (int i = 1; i <= 39; i++){
+        assert(tree.search(i, value));
+        assert(value == i * 10);
+    }
+    for (int i = 40; i <= 50; i++){
+        assert(!tree.search(i, value));
+    }
+    std::cout << "[PASS] test_internal_borrow_from_left\n";
+}
+
+static void test_internal_borrow_from_right(){
+    BPlusTree tree(4);
+    for (int i = 1; i <= 50; i++){
+        tree.insert(i, i * 10);
+    }
+    for (int i = 1; i <= 10; i++)
+    {
+        assert(tree.deleteKey(i));
+    }
+    assert(tree.validateTree());
+    int value = 0;
+    for (int i = 11; i <= 50; i++){
+        assert(tree.search(i, value));
+        assert(value == i * 10);
+    }
+    for (int i = 1; i <= 10; i++){
+        assert(!tree.search(i, value));
+    }
+    std::cout << "[PASS] test_internal_borrow_from_right\n";
+}
+
+static void test_internal_merge(){
+    BPlusTree tree(4);
+    for (int i = 1; i <= 100; i++){
+        tree.insert(i, i * 10);
+    }
+    for (int i = 1; i <= 70; i++){
+        assert(tree.deleteKey(i));
+    }
+    assert(tree.validateTree());
+    int value = 0;
+    for (int i = 71; i <= 100; i++){
+        assert(tree.search(i, value));
+        assert(value == i * 10);
+    }
+    for (int i = 1; i <= 70; i++){
+        assert(!tree.search(i, value));
+    }
+    std::cout << "[PASS] test_internal_merge\n";
+}
+
+static void test_multilevel_delete_propagation(){
+    BPlusTree tree(4);
+    for (int i = 1; i <= 200; i++){
+        tree.insert(i, i * 10);
+    }
+    for (int i = 1; i <= 180; i++){
+        assert(tree.deleteKey(i));
+    }
+    assert(tree.validateTree());
+    int value = 0;
+    for (int i = 181; i <= 200; i++){
+        assert(tree.search(i, value));
+        assert(value == i * 10);
+    }
+    for (int i = 1; i <= 180; i++){
+        assert(!tree.search(i, value));
+    }
+    std::cout << "[PASS] test_multilevel_delete_propagation\n";
+}
+
+static void test_large_delete_stress(){
+    BPlusTree tree(4);
+    for (int i = 1; i <= 1000; i++){
+        tree.insert(i, i * 10);
+    }
+    for (int i = 1; i <= 900; i++){
+        assert(tree.deleteKey(i));
+    }
+    assert(tree.validateTree());
+    int value = 0;
+    for (int i = 901; i <= 1000; i++){
+        assert(tree.search(i, value));
+        assert(value == i * 10);
+    }
+    for (int i = 1; i <= 900; i++){
+        assert(!tree.search(i, value));
+    }
+    std::cout << "[PASS] test_large_delete_stress\n";
+}
+
 void runDeleteTests()
 {
     test_delete_existing_key();
@@ -220,4 +321,9 @@ void runDeleteTests()
     test_merge_with_left_sibling();
     test_merge_with_right_sibling();
     test_leaf_merge_range_search();
+    test_internal_borrow_from_left();
+    test_internal_borrow_from_right();
+    test_internal_merge();
+    test_multilevel_delete_propagation();
+    test_large_delete_stress();
 }

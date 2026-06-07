@@ -347,37 +347,114 @@ bool BPlusTree::validateLeafChain() const{
     return true;
 }
 
-void BPlusTree::borrowFromLeftSibling(Node* leaf,Node* leftSibling){
-    int key = leftSibling->keys[leftSibling->keys.size() - 1];
-    int value = leftSibling->values[leftSibling->values.size() - 1];
-    leaf->keys.insert(leaf->keys.end(), key);
-    leaf->values.insert(leaf->values.end(), value);
-    leftSibling->keys.erase(leftSibling->keys.end() - 1);
-    leftSibling->values.erase(leftSibling->values.end() - 1);
-}
-
-void BPlusTree::borrowFromRightSibling(Node* leaf,Node* rightSibling){
-    int key = rightSibling->keys[0];
-    int value = rightSibling->values[0];
+void BPlusTree::borrowFromLeftLeaf(Node* leaf,Node* leftSibling){
+    int key = leftSibling->keys.back();
+    int value = leftSibling->values.back();
     leaf->keys.insert(leaf->keys.begin(), key);
     leaf->values.insert(leaf->values.begin(), value);
+    leftSibling->keys.pop_back();
+    leftSibling->values.pop_back();
+}
+
+void BPlusTree::borrowFromRightLeaf(Node* leaf,Node* rightSibling){
+    int key = rightSibling->keys[0];
+    int value = rightSibling->values[0];
+    leaf->keys.insert(leaf->keys.end(), key);
+    leaf->values.insert(leaf->values.end(), value);
     rightSibling->keys.erase(rightSibling->keys.begin());
     rightSibling->values.erase(rightSibling->values.begin());
 }
 
-void BPlusTree::mergeWithLeftSibling(Node *leaf, Node* leftSibling){
+void BPlusTree::mergeWithLeftLeaf(Node *leaf, Node* leftSibling){
     leftSibling->keys.insert(leftSibling->keys.end(),leaf->keys.begin(), leaf->keys.end());
     leftSibling->values.insert(leftSibling->values.end(),leaf->values.begin(), leaf->values.end());
     leftSibling->next = leaf->next;
 }
 
-void BPlusTree::mergeWithRightSibling(Node* leaf, Node* rightSibling){
+void BPlusTree::mergeWithRightLeaf(Node* leaf, Node* rightSibling){
     leaf->keys.insert(leaf->keys.end(),rightSibling->keys.begin(), rightSibling->keys.end());
     leaf->values.insert(leaf->values.end(),rightSibling->values.begin(), rightSibling->values.end());
     leaf->next = rightSibling->next;
 }
 
-void BPlusTree::handleLeafUnderflow(std::vector<Node*> pathVec,Node* leaf){
+void BPlusTree::borrowFromLeftInternal(Node *node, Node *leftSibling,
+                                       Node* parent,size_t childIndex){
+    size_t separatorIndex = childIndex - 1;
+    node->keys.insert(node->keys.begin(), parent->keys[separatorIndex]);
+    node->children.insert(node->children.begin(), 
+                        leftSibling->children.back());
+    parent->keys[separatorIndex] = leftSibling->keys.back();
+    leftSibling->keys.pop_back();
+    leftSibling->children.pop_back();
+}
+
+void BPlusTree::borrowFromRightInternal(Node *node, Node *rightSibling,
+                                        Node* parent,size_t childIndex){
+    node->keys.push_back(parent->keys[childIndex]);
+    node->children.push_back(rightSibling->children[0]);
+    parent->keys[childIndex] = rightSibling->keys[0];
+    rightSibling->keys.erase(rightSibling->keys.begin());
+    rightSibling->children.erase(rightSibling->children.begin());
+}
+
+void BPlusTree::mergeWithLeftInternal(Node *node, Node *leftSibling, 
+                                    Node *parent, size_t childIndex){
+    int separatorIndex = childIndex - 1;
+    leftSibling->keys.push_back(parent->keys[separatorIndex]);
+    parent->keys.erase(parent->keys.begin()+separatorIndex);
+    leftSibling->keys.insert(leftSibling->keys.end(),node->keys.begin(),node->keys.end());
+    leftSibling->children.insert(leftSibling->children.end(), node->children.begin(), node->children.end());
+    parent->children.erase(parent->children.begin()+childIndex);
+}
+
+void BPlusTree::mergeWithRightInternal(Node *node, Node *rightSibling, Node *parent, size_t childIndex){
+    node->keys.push_back(parent->keys[childIndex]);
+    node->keys.insert(node->keys.end(), rightSibling->keys.begin(), rightSibling->keys.end());
+    node->children.insert(node->children.end(), rightSibling->children.begin(), rightSibling->children.end());
+    parent->keys.erase(parent->keys.begin() + childIndex);
+    parent->children.erase(parent->children.begin() + childIndex + 1);
+}
+
+void BPlusTree::handleInternalUnderflow(std::vector<Node*>& pathVec){
+    if (pathVec.size() <= 1)
+    {
+        return;
+    }
+    Node *node = pathVec.back();
+    pathVec.pop_back();
+    Node *parent = pathVec.back();
+    size_t childIndex = 0;
+    for (size_t i = 0; i < parent->children.size();i++){
+        if(parent->children[i].get() == node){
+            childIndex = i;
+            break;
+        }
+    }
+    Node *leftSibling = childIndex > 0 ? parent->children[childIndex - 1].get() : nullptr;
+    Node* rightSibling = childIndex < parent->children.size()-1 ? parent->children[childIndex+1].get() : nullptr;
+    if(leftSibling && leftSibling->keys.size()>minKeys){
+        borrowFromLeftInternal(node, leftSibling, parent, childIndex);
+    }
+    else if(rightSibling && rightSibling->keys.size()>minKeys){
+        borrowFromRightInternal(node, rightSibling, parent, childIndex);
+    }
+    else{
+        if(leftSibling){
+            mergeWithLeftInternal(node, leftSibling, parent, childIndex);
+        }
+        else if(rightSibling){
+            mergeWithRightInternal(node,rightSibling,parent,childIndex);
+        }
+        if(parent->keys.size()<minKeys){
+            handleInternalUnderflow(pathVec);
+        }
+    }
+}
+
+void BPlusTree::handleLeafUnderflow(std::vector<Node*>& pathVec,Node* leaf){
+    if(pathVec.empty()){
+        return;
+    }
     Node *parent = pathVec.back();
     size_t childIndex =0;
     for (size_t i = 0; i < parent->children.size();i++){
@@ -389,23 +466,26 @@ void BPlusTree::handleLeafUnderflow(std::vector<Node*> pathVec,Node* leaf){
     Node *leftSibling = childIndex > 0 ? parent->children[childIndex - 1].get() : nullptr;
     Node* rightSibling = childIndex < parent->children.size()-1 ? parent->children[childIndex+1].get() : nullptr;
     if(leftSibling && leftSibling->keys.size()>minKeys){
-        borrowFromLeftSibling(leaf, leftSibling);
-        parent->keys[childIndex - 1] = leaf->keys[0];
+        borrowFromLeftLeaf(leaf, leftSibling);
+        if(leaf->keys.size()>0) parent->keys[childIndex - 1] = leaf->keys[0];
     }
     else if(rightSibling && rightSibling->keys.size()>minKeys){
-        borrowFromRightSibling(leaf, rightSibling);
+        borrowFromRightLeaf(leaf, rightSibling);
         parent->keys[childIndex] = rightSibling->keys[0];
     }
     else{
         if(leftSibling){
-            mergeWithLeftSibling(leaf, leftSibling);
+            mergeWithLeftLeaf(leaf, leftSibling);
             parent->children.erase(parent->children.begin() + childIndex);
             parent->keys.erase(parent->keys.begin() + childIndex-1);
         }
         else{
-            mergeWithRightSibling(leaf, rightSibling);
+            mergeWithRightLeaf(leaf, rightSibling);
             parent->children.erase(parent->children.begin() + childIndex+1);
             parent->keys.erase(parent->keys.begin() + childIndex);
+        }
+        if(parent->keys.size()<minKeys){
+            handleInternalUnderflow(pathVec);
         }
     }
 }
