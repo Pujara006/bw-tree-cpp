@@ -2,6 +2,7 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <shared_mutex>
 
 class BPlusTree
 {
@@ -12,9 +13,11 @@ class BPlusTree
             std::vector<int> values; // only applicable for leaf nodes
             std::vector<std::shared_ptr<Node>> children;
             std::shared_ptr<Node> next;
+            mutable std::shared_mutex nodeLock;
             Node(bool leaf) : isLeaf(leaf) {}
         };
         std::shared_ptr<Node> root;
+        mutable std::shared_mutex treeLock;
         size_t maxKeys;
         size_t minKeys;
         void splitRootLeaf();
