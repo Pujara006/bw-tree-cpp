@@ -311,178 +311,114 @@ static void test_large_delete_stress(){
 static void test_root_shrink_single_level()
 {
     BPlusTree tree(4);
-
-    for (int i = 1; i <= 20; i++)
-    {
+    for (int i = 1; i <= 20; i++){
         tree.insert(i, i * 10);
     }
-
-    for (int i = 1; i <= 19; i++)
-    {
+    for (int i = 1; i <= 19; i++){
         assert(tree.deleteKey(i));
     }
-
     assert(tree.validateTree());
-
     int value = 0;
     assert(tree.search(20, value));
     assert(value == 200);
-
-    for (int i = 1; i <= 19; i++)
-    {
+    for (int i = 1; i <= 19; i++){
         assert(!tree.search(i, value));
     }
-
     std::cout << "[PASS] test_root_shrink_single_level\n";
 }
 
 static void test_root_shrink_to_leaf()
 {
     BPlusTree tree(4);
-
-    for (int i = 1; i <= 10; i++)
-    {
+    for (int i = 1; i <= 10; i++){
         tree.insert(i, i * 10);
     }
-
-    for (int i = 1; i <= 9; i++)
-    {
+    for (int i = 1; i <= 9; i++){
         assert(tree.deleteKey(i));
     }
-
     assert(tree.validateTree());
-
     int value = 0;
     assert(tree.search(10, value));
     assert(value == 100);
-
     std::cout << "[PASS] test_root_shrink_to_leaf\n";
 }
 
 static void test_root_shrink_multilevel()
 {
     BPlusTree tree(4);
-
-    for (int i = 1; i <= 200; i++)
-    {
+    for (int i = 1; i <= 200; i++){
         tree.insert(i, i * 10);
     }
-
-    for (int i = 1; i <= 195; i++)
-    {
+    for (int i = 1; i <= 195; i++){
         assert(tree.deleteKey(i));
     }
-
     assert(tree.validateTree());
-
     int value = 0;
-
-    for (int i = 196; i <= 200; i++)
-    {
+    for (int i = 196; i <= 200; i++){
         assert(tree.search(i, value));
         assert(value == i * 10);
     }
-
-    for (int i = 1; i <= 195; i++)
-    {
+    for (int i = 1; i <= 195; i++){
         assert(!tree.search(i, value));
     }
-
     std::cout << "[PASS] test_root_shrink_multilevel\n";
 }
 
 static void test_root_shrink_large_stress()
 {
     BPlusTree tree(4);
-
-    for (int i = 1; i <= 1000; i++)
-    {
+    for (int i = 1; i <= 1000; i++){
         tree.insert(i, i * 10);
     }
-
-    for (int i = 1; i <= 995; i++)
-    {
+    for (int i = 1; i <= 995; i++){
         assert(tree.deleteKey(i));
     }
-
     assert(tree.validateTree());
-
     int value = 0;
-
-    for (int i = 996; i <= 1000; i++)
-    {
+    for (int i = 996; i <= 1000; i++){
         assert(tree.search(i, value));
         assert(value == i * 10);
     }
-
     std::cout << "[PASS] test_root_shrink_large_stress\n";
 }
 
 static void test_delete_everything()
 {
     BPlusTree tree(4);
-
-    for(int i = 1; i <= 100; i++)
-    {
+    for(int i = 1; i <= 100; i++){
         tree.insert(i, i * 10);
     }
-
-    for(int i = 1; i <= 100; i++)
-    {
+    for(int i = 1; i <= 100; i++){
         assert(tree.deleteKey(i));
     }
-
     assert(tree.validateTree());
-
     int value;
-    for(int i = 1; i <= 100; i++)
-    {
+    for(int i = 1; i <= 100; i++){
         assert(!tree.search(i, value));
     }
-
     std::cout << "[PASS] test_delete_everything\n";
 }
 
 static void test_delete_everything_and_validate_empty_tree()
 {
     BPlusTree tree(4);
-
-    for (int i = 1; i <= 1000; i++)
-    {
+    for (int i = 1; i <= 1000; i++){
         tree.insert(i, i * 10);
     }
-
-    for (int i = 1; i <= 1000; i++)
-
-{
-
+    for (int i = 1; i <= 1000; i++){
     assert(tree.deleteKey(i));
-
-    if (i % 100 == 0)
-
-    {
-
-        assert(tree.validateTree());
-
+        if (i % 100 == 0){
+            assert(tree.validateTree());
+        }
     }
-
-}
-
     assert(tree.validateTree());
-
     int value = 0;
-
-    for (int i = 1; i <= 1000; i++)
-    {
+    for (int i = 1; i <= 1000; i++){
         assert(!tree.search(i, value));
     }
-
     auto result = tree.rangeSearch(-10000, 10000);
-
     assert(result.empty());
-
-    std::cout
-        << "[PASS] test_delete_everything_and_validate_empty_tree\n";
+    std::cout<< "[PASS] test_delete_everything_and_validate_empty_tree\n";
 }
 
 void runDeleteTests()
