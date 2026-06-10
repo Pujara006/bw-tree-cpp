@@ -6,5 +6,6 @@ int main()
     runRangeSearchTests();
     runValidationTests();
     runDeleteTests();
+    runConcurrencyTests();
     return 0;
 }

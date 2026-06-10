@@ -23,6 +23,7 @@ add_executable(
     tests/test_range_search.cpp
     tests/test_validation.cpp
     tests/test_delete.cpp
+    tests/test_concurrency.cpp
 )
 
 target_link_libraries(

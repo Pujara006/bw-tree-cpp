@@ -59,7 +59,11 @@ std::vector<const BPlusTree::Node*> BPlusTree::findTargetLeaf(int key) const{
 
 bool BPlusTree::search(int key, int &value) const
 {
+    std::shared_lock<std::shared_mutex> lock(treeLock);
     std::vector<const Node*> pathVec = findTargetLeaf(key);
+    if (pathVec.empty()){
+        return false;
+    }
     const Node *current = pathVec.back();
     for (size_t i = 0; i < current->keys.size(); i++)
     {
@@ -75,6 +79,7 @@ bool BPlusTree::search(int key, int &value) const
 void BPlusTree::insert(int key, int value)
 {
     // current should not be constant here because we will modify the Node
+    std::unique_lock<std::shared_mutex> lock(treeLock);
     std::vector<Node*> pathVec = findTargetLeaf(key);
     Node *current = pathVec.back();
     pathVec.pop_back();
@@ -102,8 +107,8 @@ void BPlusTree::insert(int key, int value)
     }
 }
 
-void BPlusTree::printTree() const
-{
+void BPlusTree::printTree() const{
+    std::shared_lock<std::shared_mutex> lock(treeLock);
     if(root==nullptr){
         return;
     }
@@ -215,8 +220,15 @@ void BPlusTree::splitInternal(Node* internalNode, std::vector<Node*>& pathVec){
 }
 
 void BPlusTree::printLeaves() const{
+    std::shared_lock<std::shared_mutex> lock(treeLock);
+    if(root==nullptr){
+        return;
+    }
     const Node* current = root.get();
     while(!current->isLeaf){
+        if (current->children.empty()){
+            return;
+        }
         current = current->children[0].get();
     }
     while(current){
@@ -234,11 +246,15 @@ void BPlusTree::printLeaves() const{
 }
 
 std::vector<std::pair<int,int>> BPlusTree::rangeSearch(int startKey,int endKey) const{
+    std::shared_lock<std::shared_mutex> lock(treeLock);
     std::vector<std::pair<int, int>> keyValues;
     std::vector<const Node*> pathVec = findTargetLeaf(startKey);
+    if(pathVec.empty()){
+        return {};
+    }
     const Node *current = pathVec.back();
     while(current){
-        if(current->keys[0]>endKey)
+        if(!current->keys.empty() && current->keys[0]>endKey)
             break;
         for (size_t i = 0; i < current->keys.size(); i++)
         {
@@ -255,6 +271,7 @@ std::vector<std::pair<int,int>> BPlusTree::rangeSearch(int startKey,int endKey) 
 
 bool BPlusTree::validateTree() const
 {
+    std::shared_lock<std::shared_mutex> lock(treeLock);
     return BPlusTree::validateNode(root.get()) &&
            BPlusTree::validateLeafDepth() &&
            BPlusTree::validateLeafChain();
@@ -504,6 +521,7 @@ void BPlusTree::handleLeafUnderflow(std::vector<Node*>& pathVec,Node* leaf){
 }
 
 bool BPlusTree::deleteKey(int key){
+    std::unique_lock<std::shared_mutex> lock(treeLock);
     std::vector<Node*> pathVec = findTargetLeaf(key);
     if (pathVec.empty()) return false;
     Node *current = pathVec.back();
