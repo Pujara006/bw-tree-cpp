@@ -57,14 +57,37 @@ std::vector<const BPlusTree::Node*> BPlusTree::findTargetLeaf(int key) const{
     return pathVec;
 }
 
+BPlusTree::TraversalResult BPlusTree::findTargetLeafWithSharedLock(int key) const{
+    TraversalResult result;
+    if (root == nullptr){
+        return result;
+    }
+    const Node *current = root.get();
+    std::shared_lock<std::shared_mutex> lock1(current->nodeLock);
+    while(!current->isLeaf){
+        auto pos = std::upper_bound(current->keys.begin(),
+
+                            current->keys.end(),
+
+                            key) - current->keys.begin();
+
+        const Node * child = current->children[pos].get();
+        std::shared_lock<std::shared_mutex> lock2(child->nodeLock);
+        lock1 = std::move(lock2);
+        current = child;
+    }
+    result.leaf = current;
+    result.lock = std::move(lock1);
+    return result;
+}
+
 bool BPlusTree::search(int key, int &value) const
 {
-    std::shared_lock<std::shared_mutex> lock(treeLock);
-    std::vector<const Node*> pathVec = findTargetLeaf(key);
-    if (pathVec.empty()){
+    TraversalResult result = findTargetLeafWithSharedLock(key);
+    if (result.leaf == nullptr){
         return false;
     }
-    const Node *current = pathVec.back();
+    const Node *current = result.leaf;
     for (size_t i = 0; i < current->keys.size(); i++)
     {
         if (current->keys[i] == key)

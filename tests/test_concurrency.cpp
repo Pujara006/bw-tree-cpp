@@ -156,6 +156,101 @@ static void test_concurrent_mixed_workload()
     std::cout << "[PASS] test_concurrent_mixed_workload\n";
 }
 
+static void test_many_concurrent_search_threads()
+{
+    BPlusTree tree(4);
+
+    for (int i = 1; i <= 1000; i++)
+    {
+        tree.insert(i, i * 10);
+    }
+
+    constexpr int threadCount = 32;
+
+    std::vector<std::thread> threads;
+
+    for (int t = 0; t < threadCount; t++)
+    {
+        threads.emplace_back([&tree]() {
+            int value = 0;
+
+            for (int round = 0; round < 100; round++)
+            {
+                for (int i = 1; i <= 1000; i++)
+                {
+                    assert(tree.search(i, value));
+                    assert(value == i * 10);
+                }
+            }
+        });
+    }
+
+    for (auto &thread : threads)
+    {
+        thread.join();
+    }
+
+    assert(tree.validateTree());
+
+    std::cout << "[PASS] test_many_concurrent_search_threads\n";
+}
+
+static void test_concurrent_search_during_insert()
+{
+    BPlusTree tree(4);
+
+    for (int i = 1; i <= 1000; i++)
+    {
+        tree.insert(i, i * 10);
+    }
+
+    std::thread inserter([&tree]() {
+        for (int i = 1001; i <= 5000; i++)
+        {
+            tree.insert(i, i * 10);
+        }
+    });
+
+    constexpr int searchThreadCount = 8;
+
+    std::vector<std::thread> searchThreads;
+
+    for (int t = 0; t < searchThreadCount; t++)
+    {
+        searchThreads.emplace_back([&tree]() {
+            int value = 0;
+
+            for (int round = 0; round < 50; round++)
+            {
+                for (int i = 1; i <= 1000; i++)
+                {
+                    assert(tree.search(i, value));
+                    assert(value == i * 10);
+                }
+            }
+        });
+    }
+
+    inserter.join();
+
+    for (auto &thread : searchThreads)
+    {
+        thread.join();
+    }
+
+    assert(tree.validateTree());
+
+    int value = 0;
+
+    for (int i = 1; i <= 5000; i++)
+    {
+        assert(tree.search(i, value));
+        assert(value == i * 10);
+    }
+
+    std::cout << "[PASS] test_concurrent_search_during_insert\n";
+}
+
 void runConcurrencyTests()
 {
     test_concurrent_search();
@@ -163,4 +258,6 @@ void runConcurrencyTests()
     test_concurrent_search_and_insert();
     test_concurrent_delete();
     test_concurrent_mixed_workload();
+    test_many_concurrent_search_threads();
+    test_concurrent_search_during_insert();
 }
