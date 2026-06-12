@@ -7,7 +7,8 @@
 class BPlusTree
 {
     private:
-        struct Node{
+        struct Node
+        {
             bool isLeaf;
             std::vector<int> keys;
             std::vector<int> values; // only applicable for leaf nodes
@@ -15,6 +16,10 @@ class BPlusTree
             std::shared_ptr<Node> next;
             mutable std::shared_mutex nodeLock;
             Node(bool leaf) : isLeaf(leaf) {}
+        };
+        struct TraversalResult{
+            std::shared_lock<std::shared_mutex> lock;
+            const Node *leaf = nullptr;
         };
         std::shared_ptr<Node> root;
         mutable std::shared_mutex treeLock;
@@ -25,6 +30,7 @@ class BPlusTree
         void splitInternal(Node* internalNode, std::vector<Node*>& path);
         std::vector<Node*> findTargetLeaf(int key);
         std::vector<const Node*> findTargetLeaf(int key) const;
+        TraversalResult findTargetLeafWithSharedLock(int key) const;
         void insertIntoParent(std::vector<Node *> &pathVec,
                                          std::shared_ptr<Node> rightNode, int separatorKey);
         bool validateNode(const Node* node) const;
