@@ -21,18 +21,29 @@ class BPlusTree
             std::shared_lock<std::shared_mutex> lock;
             const Node *leaf = nullptr;
         };
+        struct InsertTraversalResult{
+            std::vector<std::unique_lock<std::shared_mutex>> locks;
+            std::vector<Node *> pathVec;
+            std::unique_lock<std::shared_mutex> treeLk;  // held iff root may still be replaced
+            Node *leaf = nullptr;
+        };
         std::shared_ptr<Node> root;
         mutable std::shared_mutex treeLock;
         size_t maxKeys;
         size_t minKeys;
         void splitRootLeaf();
-        void splitLeaf(std::vector<Node*>& pathVec,Node* leaf);
-        void splitInternal(Node* internalNode, std::vector<Node*>& path);
-        std::vector<Node*> findTargetLeaf(int key);
+        void splitLeaf(
+            std::vector<Node*>& pathVec,
+            std::vector<std::unique_lock<std::shared_mutex>>& locks,Node* leaf);
+        void splitInternal(Node* internalNode,std::vector<Node*>& pathVec,
+                std::vector<std::unique_lock<std::shared_mutex>>& locks);
         std::vector<const Node*> findTargetLeaf(int key) const;
         TraversalResult findTargetLeafWithSharedLock(int key) const;
-        void insertIntoParent(std::vector<Node *> &pathVec,
-                                         std::shared_ptr<Node> rightNode, int separatorKey);
+        std::vector<Node*> findTargetLeaf(int key);
+        InsertTraversalResult findTargetLeafForInsert(int key);
+        void insertIntoParent(std::vector<Node*>& pathVec,
+                    std::vector<std::unique_lock<std::shared_mutex>>& locks,  // ADD locks param
+                    std::shared_ptr<Node> rightNode,int separatorKey);
         bool validateNode(const Node* node) const;
         bool validateLeafDepth() const;
         bool validateLeafChain() const;

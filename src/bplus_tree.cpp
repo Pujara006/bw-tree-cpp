@@ -99,33 +99,162 @@ bool BPlusTree::search(int key, int &value) const
     return false;
 }
 
+BPlusTree::InsertTraversalResult BPlusTree::findTargetLeafForInsert(int key){
+    InsertTraversalResult result;
+    std::unique_lock<std::shared_mutex> treeLk(treeLock);   // pin the root pointer
+    if (root == nullptr) return result;
+    Node* current = root.get();
+    std::unique_lock<std::shared_mutex> lock1(current->nodeLock);
+    // Root won't split (so won't be replaced) iff it has room. Then drop treeLk.
+    if (current->keys.size() < maxKeys)
+        treeLk.unlock();
+    else
+        result.treeLk = std::move(treeLk);   // keep until the split finishes
+    while (!current->isLeaf) {
+        auto pos = std::upper_bound(current->keys.begin(),
+                                    current->keys.end(), key)
+                   - current->keys.begin();
+        Node* child = current->children[pos].get();
+        std::unique_lock<std::shared_mutex> lock2(child->nodeLock);
+        if (child->keys.size() < maxKeys) {
+            // Nothing at/above this child can split -> drop all ancestors,
+            // and the root can no longer be replaced -> drop treeLk too.
+            result.pathVec.clear();
+            result.locks.clear();
+            if (result.treeLk.owns_lock()) result.treeLk.unlock();
+        } else {
+            result.pathVec.push_back(current);
+            result.locks.push_back(std::move(lock1));
+        }
+        lock1 = std::move(lock2);
+        current = child;
+    }
+    result.leaf = current;
+    result.locks.push_back(std::move(lock1));
+    return result;
+}
+
+// Caller (insert) already holds treeLock via result.treeLk, because this is
+// only reached when the leaf-root was unsafe. Do NOT lock treeLock again.
+// root.get() == leaf is guaranteed here, so reading the global root is safe.
+void BPlusTree::splitRootLeaf()
+{
+    std::shared_ptr<Node> newRoot = std::make_shared<Node>(false);
+    size_t splitIndex = root->keys.size() / 2;
+    std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
+    newRoot->children.push_back(root);
+    newRoot->children.push_back(rightLeaf);
+    rightLeaf->keys.assign(root->keys.begin() + splitIndex, root->keys.end());
+    rightLeaf->values.assign(root->values.begin() + splitIndex, root->values.end());
+    root->keys.erase(root->keys.begin() + splitIndex, root->keys.end());
+    root->values.erase(root->values.begin() + splitIndex, root->values.end());
+    int separatorKey = rightLeaf->keys[0];
+    newRoot->keys.push_back(separatorKey);
+    rightLeaf->next = root->next;
+    root->next = rightLeaf;
+    root = newRoot;
+}
+
+void BPlusTree::insertIntoParent(
+        std::vector<Node*>& pathVec,
+        std::vector<std::unique_lock<std::shared_mutex>>& locks,
+        std::shared_ptr<Node> rightNode,int separatorKey){
+    if (!pathVec.empty()) {
+        auto parent = pathVec.back();
+        auto pos = std::lower_bound(parent->keys.begin(),
+                                    parent->keys.end(), separatorKey)
+                   - parent->keys.begin();
+        parent->keys.insert(parent->keys.begin() + pos, separatorKey);
+        parent->children.insert(parent->children.begin() + pos + 1, rightNode);
+    } else {
+        // Root replacement. Reached only when the old root was unsafe, so the
+        // calling thread already holds treeLock via result.treeLk — do NOT relock.
+        std::shared_ptr<Node> newRoot = std::make_shared<Node>(false);
+        newRoot->keys.push_back(separatorKey);
+        newRoot->children.push_back(root);
+        newRoot->children.push_back(rightNode);
+        root = newRoot;
+        // Lock the new root before anyone can traverse it.
+        std::unique_lock<std::shared_mutex> newRootLock(root->nodeLock);
+        pathVec.push_back(root.get());
+        locks.push_back(std::move(newRootLock));
+    }
+}
+
+void BPlusTree::splitLeaf(
+    std::vector<Node*>& pathVec,
+    std::vector<std::unique_lock<std::shared_mutex>>& locks,Node* leaf){
+    size_t splitIndex = leaf->keys.size() / 2;
+    std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
+    rightLeaf->keys.assign(leaf->keys.begin() + splitIndex, leaf->keys.end());
+    rightLeaf->values.assign(leaf->values.begin() + splitIndex, leaf->values.end());
+    leaf->keys.erase(leaf->keys.begin() + splitIndex, leaf->keys.end());
+    leaf->values.erase(leaf->values.begin() + splitIndex, leaf->values.end());
+    int separatorKey = rightLeaf->keys[0];
+    rightLeaf->next = leaf->next;
+    leaf->next = rightLeaf;
+    insertIntoParent(pathVec, locks, rightLeaf, separatorKey);
+    Node* parent = pathVec.back();
+    pathVec.pop_back();
+    if (!locks.empty()) locks.pop_back();  // releases the leaf lock; leaf is done
+    if (parent->keys.size() > maxKeys)
+        splitInternal(parent, pathVec, locks);
+}
+
+void BPlusTree::splitInternal(
+    Node* internalNode,
+    std::vector<Node*>& pathVec,
+    std::vector<std::unique_lock<std::shared_mutex>>& locks){
+    while (internalNode->keys.size() > maxKeys) {
+        std::shared_ptr<Node> rightNode = std::make_shared<Node>(false);
+        size_t splitIndex = internalNode->keys.size() / 2;
+
+        rightNode->keys.assign(internalNode->keys.begin() + splitIndex + 1,
+                               internalNode->keys.end());
+        rightNode->children.assign(internalNode->children.begin() + splitIndex + 1,
+                                   internalNode->children.end());
+
+        int separatorKey = internalNode->keys[splitIndex];
+        internalNode->keys.erase(internalNode->keys.begin() + splitIndex,
+                                 internalNode->keys.end());
+        internalNode->children.erase(internalNode->children.begin() + splitIndex + 1,
+                                     internalNode->children.end());
+
+        insertIntoParent(pathVec, locks, rightNode, separatorKey);
+
+        if (pathVec.empty()) break;
+
+        internalNode = pathVec.back();
+        pathVec.pop_back();
+        if (!locks.empty()) locks.pop_back();
+    }
+}
+
 void BPlusTree::insert(int key, int value)
 {
-    // current should not be constant here because we will modify the Node
-    std::unique_lock<std::shared_mutex> lock(treeLock);
-    std::vector<Node*> pathVec = findTargetLeaf(key);
-    Node *current = pathVec.back();
-    pathVec.pop_back();
+    InsertTraversalResult result = findTargetLeafForInsert(key);
+    Node* current = result.leaf;
+    if (current == nullptr) return;   // empty tree: handle root creation separately
+
     auto pos = std::lower_bound(current->keys.begin(),
-                                  current->keys.end(), key) -
-                 current->keys.begin();
+                                current->keys.end(), key)
+               - current->keys.begin();
     const size_t posIndex = static_cast<size_t>(pos);
-    if (posIndex < current->keys.size() && key == current->keys[posIndex])
-    {
-        std::cout << "Pair with key " << key << " already exists so doing nothing" << std::endl;
+
+    if (posIndex < current->keys.size() && key == current->keys[posIndex]) {
+        std::cout << "Pair with key " << key << " already exists\n";
         return;
     }
+
     current->keys.insert(current->keys.begin() + pos, key);
     current->values.insert(current->values.begin() + pos, value);
-    if (current->keys.size() > maxKeys)
-    {
-        if (root->isLeaf)
-        {
+
+    if (current->keys.size() > maxKeys) {
+        if (result.pathVec.empty()) {
+            // No parent was retained -> the overflowing leaf IS the root.
             splitRootLeaf();
-        }
-        else if (current->isLeaf)
-        {
-            splitLeaf(pathVec,current);
+        } else {
+            splitLeaf(result.pathVec, result.locks, current);
         }
     }
 }
@@ -160,87 +289,6 @@ void BPlusTree::printTree() const{
     }
 }
 
-void BPlusTree::splitRootLeaf()
-{
-    std::shared_ptr<Node> newRoot = std::make_shared<Node>(false);
-    size_t splitIndex = (root->keys.size()) / 2;
-    std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
-    newRoot->children.push_back(root);
-    newRoot->children.push_back(rightLeaf);
-    rightLeaf->keys.assign(root->keys.begin() + splitIndex,
-                           root->keys.end());
-    rightLeaf->values.assign(root->values.begin() + splitIndex,
-                             root->values.end());
-    root->keys.erase(root->keys.begin() + splitIndex,
-                     root->keys.end());
-    root->values.erase(root->values.begin() + splitIndex,
-                       root->values.end());
-    int separatorKey = rightLeaf->keys[0];
-    newRoot->keys.push_back(separatorKey);
-    rightLeaf->next = root->next;
-    root->next = rightLeaf;
-    root = newRoot;
-}
-
-void BPlusTree::insertIntoParent(std::vector<Node*>& pathVec,std::shared_ptr<Node> rightNode,int separatorKey){
-    if(pathVec.size()>0){
-        auto parent = pathVec.back();
-        auto pos = std::lower_bound(parent->keys.begin(), parent->keys.end(), separatorKey) -
-                     parent->keys.begin();
-        parent->keys.insert(parent->keys.begin() + pos, separatorKey);
-        parent->children.insert(parent->children.begin() + pos + 1, rightNode);
-    }
-    else{
-        std::shared_ptr<Node> parent = std::make_shared<Node>(false);
-        parent->keys.push_back(separatorKey);
-        parent->children.push_back(root);
-        parent->children.push_back(rightNode);
-        root = parent;
-        pathVec.push_back(root.get());
-    }
-}
-
-void BPlusTree::splitLeaf(std::vector<Node*>& pathVec,Node *leaf)
-{
-    size_t splitIndex = (leaf->keys.size()) / 2;
-    std::shared_ptr<Node> rightLeaf = std::make_shared<Node>(true);
-    rightLeaf->keys.assign(leaf->keys.begin() + splitIndex,
-                           leaf->keys.end());
-    rightLeaf->values.assign(leaf->values.begin() + splitIndex,
-                             leaf->values.end());
-    leaf->keys.erase(leaf->keys.begin() + splitIndex,
-                     leaf->keys.end());
-    leaf->values.erase(leaf->values.begin() + splitIndex,
-                       leaf->values.end());
-    int separatorKey = rightLeaf->keys[0];
-    insertIntoParent(pathVec, rightLeaf, separatorKey);
-    rightLeaf->next = leaf->next;
-    leaf->next = rightLeaf;
-    auto parent = pathVec.back();
-    pathVec.pop_back();
-    if (parent->keys.size() > maxKeys)
-        splitInternal(parent,pathVec);
-}
-
-void BPlusTree::splitInternal(Node* internalNode, std::vector<Node*>& pathVec){
-    while(internalNode->keys.size()>maxKeys)
-    {
-        std::shared_ptr<Node> rightNode = std::make_shared<Node>(false);
-        size_t splitIndex = internalNode->keys.size() / 2;
-        rightNode->keys.assign(internalNode->keys.begin() + splitIndex + 1,
-                            internalNode->keys.end());
-        rightNode->children.assign(internalNode->children.begin() + splitIndex + 1,
-                                internalNode->children.end());
-        int separatorKey = internalNode->keys[splitIndex];
-        internalNode->keys.erase(internalNode->keys.begin() + splitIndex,
-                                 internalNode->keys.end());
-        internalNode->children.erase(internalNode->children.begin() + splitIndex + 1, 
-                            internalNode->children.end());
-        insertIntoParent(pathVec,rightNode, separatorKey);
-        internalNode = pathVec.back();
-        pathVec.pop_back();
-    }
-}
 
 void BPlusTree::printLeaves() const{
     std::shared_lock<std::shared_mutex> lock(treeLock);
